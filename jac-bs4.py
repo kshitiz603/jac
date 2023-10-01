@@ -1,57 +1,49 @@
 import requests
+import csv
 from bs4 import BeautifulSoup
 
-# Creating a CSV file
-filename = "jac.csv"
+filename = "spi.csv"
+f = open(filename, 'w')
 
-# Open the CSV file to write
-with open(filename, 'w') as f:
-    # Create a header in the file (if needed)
+# Define the URL and payload
+url = "https://www.jacresults.com/cls-eleven-2023/main_result.php"
+for i in range(10001, 10003):
+    payload = {
+        "rollcode": "32010",
+        "rollno": i,
+        "B1": "Submit"
+    }
 
-    # Put range of roll numbers
-    for i in range(10001, 10302):
-        try:
-            # Set up the URL
-            url = "https://www.jacresults.com/cls-eleven-2023/index.php"
+    # Send the POST request with allow_redirects=True to follow redirects
+    response = requests.post(url, data=payload, allow_redirects=True)
 
-            # Create a session to maintain cookies
-            with requests.Session() as session:
-                # Make an HTTP GET request
-                response = session.get(url)
-
-                # Parse the HTML content with Beautiful Soup
-                soup = BeautifulSoup(response.text, 'html.parser')
-
-                # Put roll code using XPath
-                rollcode_input = soup.find('input', {'xpath': '/html/body/form/div/div/div/div/div[1]/table/tbody/tr[1]/td[2]/input'})
-                rollcode_input['value'] = '32010'
-
-                # Put roll number using XPath
-                rollnumber_input = soup.find('input', {'xpath': '/html/body/form/div/div/div/div/div[1]/table/tbody/tr[2]/td[2]/input'})
-                rollnumber_input['value'] = str(i)
-
-                # Submit the form using XPath
-                submit_button = soup.find('button', {'xpath': '/html/body/form/div/div/div/div/div[2]/div[1]/button'})
-                response = session.post(url, data=soup.find('form').attrs)
-
-                # Parse the updated HTML content
-                soup = BeautifulSoup(response.text, 'html.parser')
-
-                # Extract student name using XPath
-                name_element = soup.find('p', {'xpath': '/html/body/div[1]/form/div/div/div[2]/table[1]/tbody/tr[3]/td/p'})
-                name = name_element.text if name_element else "Name not found"
-
-                # Extract roll code using XPath
-                code_element = soup.find('span', {'xpath': '/html/body/div[1]/form/div/div/div[2]/table[1]/tbody/tr[1]/th[1]/span[2]'})
-                code = code_element.text.strip() if code_element else "Code not found"
-
-                # Extract roll number
-                roll = str(i)
-
-                # Write all details to the file
-                f.write(f"{name},{roll},{code}\n")
-                print(f"Scraped: Name={name}, Roll={roll}, Code={code}")
-
-        except Exception as e:
-            print(f"Error for Roll {i}: {str(e)}")
-            continue
+    # Check if the request was successful
+    if response.status_code == 200:
+        # Parse the HTML content using BeautifulSoup
+        soup = BeautifulSoup(response.text, 'html.parser')
+        
+        # Find the table containing the data you want
+        table = soup.find("table")
+        
+        if table:
+            # Iterate through rows in the table
+            for row in table.find_all("tr"):
+                # Initialize an empty list to store column data
+                column_data = []
+                
+                # Iterate through columns in each row
+                columns = row.find_all("td")
+                
+                # Extract and append the data in each column to column_data
+                for column in columns:
+                    column_text = column.text.strip() if column.text else ""  # Handle None values
+                    column_data.append(column_text)
+                
+                # Print the row's data as a comma-separated string
+                row_data = ",".join(column_data)
+                f.write(row_data + str(i)+"\n")
+                #print(type(row_data))
+        else:
+            print("Table not found on the page.")
+    else:
+        print("Failed to retrieve data. Status code:", response.status_code)
